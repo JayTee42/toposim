@@ -1,13 +1,40 @@
-use rayon::prelude::*;
 use std::iter::{once, repeat};
 use std::ops::Div;
+use std::str::FromStr;
+
+use rayon::prelude::*;
 use structopt::StructOpt;
 
+/// The different network topologies we support
+enum Topology {
+    Ring,
+    OnewayRing,
+    Star,
+    Line,
+}
+
+impl FromStr for Topology {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use Topology::*;
+
+        Ok(match s {
+            "ring" => Ring,
+            "oneway_ring" => OnewayRing,
+            "star" => Star,
+            "line" => Line,
+            _ => return Err("Unknown topology type (valid ones are \"ring\", \"oneway_ring\", \"star\", \"line\")"),
+        })
+    }
+}
+
+/// CLI arguments
 #[derive(StructOpt)]
-#[structopt(name = "moepp")]
+#[structopt()]
 struct Opt {
     #[structopt(name = "TOPOLOGY")]
-    topo: String,
+    topology: Topology,
 
     #[structopt(name = "COUNT")]
     n: usize,
@@ -16,12 +43,17 @@ struct Opt {
 // How many simulations to run?
 const SIM_COUNT: usize = 1000000;
 
+/// This is the cost matrix of a network topology graph.
 struct CostMatrix {
+    /// The number of nodes in the graph
     n: usize,
+
+    /// The cost entries (row-major)
     cost: Vec<usize>,
 }
 
 impl CostMatrix {
+    /// Create a ring topology.
     pub fn ring(n: usize) -> Self {
         assert!(n > 1, "n must be > 1.");
 
@@ -40,6 +72,7 @@ impl CostMatrix {
         }
     }
 
+    /// Create a directed ring topology.
     pub fn oneway_ring(n: usize) -> Self {
         assert!(n > 1, "n must be > 1.");
 
@@ -51,6 +84,7 @@ impl CostMatrix {
         }
     }
 
+    /// Create a star topology.
     pub fn star(n: usize) -> Self {
         assert!(n > 1, "n must be > 1.");
 
@@ -68,6 +102,7 @@ impl CostMatrix {
         }
     }
 
+    /// Create a line topology.
     pub fn line(n: usize) -> Self {
         assert!(n > 1, "n must be > 1.");
 
@@ -79,6 +114,8 @@ impl CostMatrix {
         }
     }
 
+    /// Let each node randomly select a target node to send a message to.
+    /// Return the average message hop count over all nodes.
     pub fn simulate_step(&self) -> f64 {
         let hop_sum: f64 = (0..self.n)
             .map(|row| self.cost[(row * (self.n - 1)) + fastrand::usize(..(self.n - 1))] as f64)
@@ -89,6 +126,8 @@ impl CostMatrix {
 }
 
 fn main() {
+    use Topology::*;
+
     // Build the cost matrix from the args.
     let opt = Opt::from_args();
 
@@ -97,15 +136,11 @@ fn main() {
         return;
     }
 
-    let cost = match opt.topo.to_lowercase().as_str() {
-        "ring" => CostMatrix::ring(opt.n),
-        "oneway_ring" => CostMatrix::oneway_ring(opt.n),
-        "star" => CostMatrix::star(opt.n),
-        "line" => CostMatrix::line(opt.n),
-        _ => {
-            println!("Unknown topology type (valid ones are \"ring\", \"oneway_ring\", \"star\", \"line\")");
-            return;
-        }
+    let cost = match opt.topology {
+        Ring => CostMatrix::ring(opt.n),
+        OnewayRing => CostMatrix::oneway_ring(opt.n),
+        Star => CostMatrix::star(opt.n),
+        Line => CostMatrix::line(opt.n),
     };
 
     // Perform the simulation (in parallel because we can).
