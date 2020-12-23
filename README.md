@@ -1,5 +1,5 @@
 # Network topography simulator
-### Simulate package hopping in a network topology graph 
+### Simulate packet hopping in a network topology graph 
 
 See [this exercise](https://github.com/JayTee42/tubaf-rn-2020-21/blob/main/02%20-%20ISO_OSI/HA.pdf) from my computer network course for details.
 
